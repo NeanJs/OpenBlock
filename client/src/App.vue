@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import PageSwitch from './components/layout/PageSwitch.vue'
 import BackgroundScene from './components/layout/BackgroundScene.vue'
+import OfflineNotice from './components/ui/OfflineNotice.vue'
 import { useAuth } from './composables/useAuth'
 import { useIssues } from './composables/useIssues'
 import { useLocale } from './composables/useLocale'
+import { hydrateOfflineNotice } from './composables/useOfflineNotice'
+import { useOfflineNotice } from './composables/useOfflineNotice'
 
 const { storeReady } = useIssues()
 const { ready: authReady } = useAuth()
 const { ready: localeReady, t } = useLocale()
+const { visible: offlineVisible, dismiss: dismissOffline } = useOfflineNotice()
 
 const booting = computed(() => !storeReady.value || !authReady.value || !localeReady.value)
+
+onMounted(() => {
+  void hydrateOfflineNotice()
+})
 </script>
 
 <template>
@@ -24,6 +32,7 @@ const booting = computed(() => !storeReady.value || !authReady.value || !localeR
         <PageSwitch layer="layout" />
       </div>
     </Transition>
+    <OfflineNotice :open="offlineVisible" @close="dismissOffline" />
   </div>
 </template>
 
