@@ -5,7 +5,7 @@ import { ApiRequestError } from '../api/apiRequestError'
 import { readStoreItem, writeStoreItem } from '../storage/persistentStore'
 import { conversationTranscripts, mockIssues } from './mockData'
 
-const storageKey = 'cityfix.issues.v1'
+const storageKey = 'cityfix.issues.v2'
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

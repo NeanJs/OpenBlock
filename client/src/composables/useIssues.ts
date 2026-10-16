@@ -20,7 +20,7 @@ import { isDemoMode } from '../config/demoMode'
 import { getMockIssues } from '../services/mock/mockData'
 import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
 
-const storageKey = 'cityfix.issues.v1'
+const storageKey = 'cityfix.issues.v2'
 
 const issues = ref<Issue[]>([])
 const hydrated = ref(false)
