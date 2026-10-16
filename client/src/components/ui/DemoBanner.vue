@@ -24,11 +24,11 @@ const visible = computed(() => isDemoMode())
   z-index: 70;
   background: var(--accent);
   color: var(--text-on-accent, white);
-  padding: 0.6rem 1rem;
+  padding: 0.3rem 0.75rem;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.85rem;
+  gap: 0.4rem;
+  font-size: 0.8rem;
   font-weight: 500;
   justify-content: center;
   width: 100%;

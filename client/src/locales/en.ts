@@ -1,7 +1,7 @@
 export const en = {
   boot: 'Loading workspace…',
   demo: {
-    banner: 'Offline demo mode — simulated data, not real reports.',
+    banner: 'Offline demo mode: all reports are simulated, not real.',
   },
   api: {
     unavailable: 'The reporting service is not configured. Try again later.',
