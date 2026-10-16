@@ -1,6 +1,8 @@
 import { reportTranscribeUrl } from '../../config/apiConfig'
 import { appendFormFile, audioFileName } from '../media/formFile'
 import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
+import { isDemoMode } from '../../config/demoMode'
+import { mockTranscribeReport } from '../mock/mockApi'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -44,6 +46,9 @@ export function parseTranscribeResponse(payload: unknown): string {
 }
 
 export async function transcribeReport(audio: Blob, signal?: AbortSignal): Promise<string> {
+  if (isDemoMode()) {
+    return mockTranscribeReport(audio)
+  }
   const url = reportTranscribeUrl
   if (!url) {
     throw new ApiRequestError('unavailable')

@@ -14,6 +14,14 @@ import { defaultIssueType } from '../report/issueType'
 import { normalizeSeverity } from '../report/severity'
 import { normalizeStatus } from '../report/statusFlow'
 import { pickIssueType } from './pickIssueType'
+import { isDemoMode } from '../../config/demoMode'
+import {
+  mockCreateReport,
+  mockGetAdminReport,
+  mockListReports,
+  mockTrackReport,
+  mockUpdateReportStatus,
+} from '../mock/mockApi'
 import type { IssueSeverity, IssueStatus } from '../../types/issue'
 
 export class ReportApiError extends ApiRequestError {
@@ -329,6 +337,9 @@ function adminHeaders(accessToken: string): HeadersInit {
 }
 
 export async function listReports(accessToken: string): Promise<RemoteReport[]> {
+  if (isDemoMode()) {
+    return mockListReports()
+  }
   const url = adminReportsUrl
   if (!url) {
     throw new ReportApiError('unavailable')
@@ -364,6 +375,9 @@ export async function getAdminReport(
   reportId: string,
   accessToken: string,
 ): Promise<RemoteReport> {
+  if (isDemoMode()) {
+    return mockGetAdminReport(reportId)
+  }
   const url = adminReportUrl(reportId)
   if (!url) {
     throw new ReportApiError('unavailable')
@@ -387,6 +401,9 @@ export async function updateReportStatus(
   status: IssueStatus,
   accessToken: string,
 ): Promise<RemoteReport | null> {
+  if (isDemoMode()) {
+    return mockUpdateReportStatus(reportId, status)
+  }
   const url = adminReportStatusUrl(reportId)
   if (!url) {
     throw new ReportApiError('unavailable')
@@ -419,6 +436,9 @@ export async function updateReportStatus(
 }
 
 export async function createReport(input: CreateReportInput): Promise<RemoteReport> {
+  if (isDemoMode()) {
+    return mockCreateReport(input)
+  }
   const url = reportsCollectionUrl
   if (!url) {
     throw new ReportApiError('unavailable')
@@ -438,6 +458,9 @@ export async function createReport(input: CreateReportInput): Promise<RemoteRepo
 }
 
 export async function trackReport(trackingId: string): Promise<RemoteReport> {
+  if (isDemoMode()) {
+    return mockTrackReport(trackingId)
+  }
   const url = reportTrackUrl(trackingId)
   if (!url) {
     throw new ReportApiError('unavailable')

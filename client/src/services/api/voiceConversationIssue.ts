@@ -1,6 +1,8 @@
 import { voiceConversationIssueUrl } from '../../config/apiConfig'
 import { ApiRequestError, apiRequestErrorFromResponse } from './apiRequestError'
 import { parseReportIngestResponse } from './ingestReport'
+import { isDemoMode } from '../../config/demoMode'
+import { mockGetVoiceConversationIssue } from '../mock/mockApi'
 import type { ReportIngestDraft } from '../../types/reportIngest'
 
 const retryDelays = [800, 1200, 1600, 2000, 2500, 3000]
@@ -44,6 +46,9 @@ async function fetchVoiceConversationIssue(url: string) {
 export async function getVoiceConversationIssue(
   conversationId: string,
 ): Promise<ReportIngestDraft> {
+  if (isDemoMode()) {
+    return mockGetVoiceConversationIssue(conversationId)
+  }
   const id = conversationId.trim()
   const url = voiceConversationIssueUrl(id)
   if (!id || !url) {

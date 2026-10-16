@@ -8,6 +8,7 @@ import {
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { elevenLabsAgentId } from '../config/elevenLabsConfig'
+import { isDemoMode } from '../config/demoMode'
 import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
 import { setVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 
@@ -210,6 +211,18 @@ export function useElevenLabsConversation() {
     if (starting.value || sessionHeld.value) {
       return
     }
+    if (isDemoMode()) {
+      starting.value = true
+      status.value = 'connecting'
+      errorKey.value = ''
+      setTimeout(() => {
+        status.value = 'connected'
+        mode.value = 'listening'
+        starting.value = false
+        didConnect = true
+      }, 400)
+      return
+    }
     if (!elevenLabsAgentId) {
       errorKey.value = 'voice.unavailable'
       return
@@ -400,6 +413,16 @@ export function useElevenLabsConversation() {
       completeCancelled = true
       endingSession = null
       return closeSession({ discard: true })
+    }
+    if (isDemoMode()) {
+      const demoId = 'conv-001'
+      setVoiceReportHandoff({
+        conversationId: demoId,
+        userTranscript: 'I need to report a pothole on Granville Street near Davie Street.',
+      })
+      completedConversationId.value = demoId
+      completing.value = false
+      return demoId
     }
     if (endingSession) {
       return endingSession

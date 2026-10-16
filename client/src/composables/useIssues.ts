@@ -16,6 +16,8 @@ import { readStoreItem, writeStoreItem } from '../services/storage/persistentSto
 import { defaultIssueType, normalizeIssueType } from '../services/report/issueType'
 import { classifyIssueInput } from '../services/report/reportInputKind'
 import { normalizeSeverity } from '../services/report/severity'
+import { isDemoMode } from '../config/demoMode'
+import { getMockIssues } from '../services/mock/mockData'
 import type { Issue, IssueStatus, NewIssueInput } from '../types/issue'
 
 const storageKey = 'cityfix.issues.v1'
@@ -126,6 +128,10 @@ export async function bootstrapIssues() {
     } catch {
       issues.value = []
     }
+    if (isDemoMode() && issues.value.length === 0) {
+      issues.value = getMockIssues()
+      await persist()
+    }
     storeReady.value = true
   })()
   return bootstrapPromise
@@ -217,6 +223,9 @@ export function useIssues() {
   }
 
   async function requireStaffToken() {
+    if (isDemoMode()) {
+      return 'demo-token'
+    }
     const token = await getAccessToken()
     if (!token) {
       await handleUnauthorized()
@@ -226,6 +235,19 @@ export function useIssues() {
   }
 
   async function loadStaffReports() {
+    if (isDemoMode()) {
+      staffLoadStatus.value = 'loading'
+      try {
+        const remotes = await listReports('demo-token')
+        for (const remote of remotes) {
+          await saveRemoteReport(remote, 'demo-user', true)
+        }
+        staffLoadStatus.value = 'ready'
+      } catch {
+        staffLoadStatus.value = 'error'
+      }
+      return
+    }
     if (!adminReportsUrl) {
       staffLoadStatus.value = 'ready'
       return
@@ -252,7 +274,18 @@ export function useIssues() {
 
   async function loadStaffReport(reportId: string) {
     const id = reportId.trim()
-    if (!id || !adminReportsUrl) {
+    if (!id) {
+      return null
+    }
+    if (isDemoMode()) {
+      try {
+        const remote = await getAdminReport(id, 'demo-token')
+        return saveRemoteReport(remote, 'demo-user', true)
+      } catch {
+        return null
+      }
+    }
+    if (!adminReportsUrl) {
       return null
     }
     const token = await requireStaffToken()

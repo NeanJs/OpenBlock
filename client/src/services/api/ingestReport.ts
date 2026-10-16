@@ -5,6 +5,8 @@ import { normalizeSeverity } from '../report/severity'
 import { normalizeStatus } from '../report/statusFlow'
 import { pickIssueType } from './pickIssueType'
 import { appendFormFile, fileFromDataUrl, isAnalyzeImage, photoFileName } from '../media/formFile'
+import { isDemoMode } from '../../config/demoMode'
+import { mockIngestReport } from '../mock/mockApi'
 import type { ReportIngestDraft, ReportIngestInput } from '../../types/reportIngest'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -252,6 +254,9 @@ async function parseOkDraft(response: Response) {
 }
 
 export async function ingestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
+  if (isDemoMode()) {
+    return mockIngestReport(input)
+  }
   const url = reportIngestUrl
   if (!url) {
     throw new ApiRequestError('unavailable')
