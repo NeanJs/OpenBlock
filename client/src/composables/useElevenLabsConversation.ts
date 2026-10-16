@@ -9,6 +9,8 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { elevenLabsAgentId } from '../config/elevenLabsConfig'
 import { isDemoMode } from '../config/demoMode'
+import { createSpeechEndpoint } from '../services/media/speechEndpoint'
+import { requestVoiceMediaStream } from '../services/media/voiceIsolate'
 import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
 import { setVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 
@@ -17,8 +19,6 @@ export type VoiceMode = Mode
 
 const emptyFrequency = new Uint8Array(0)
 const unmuteDelayMs = 250
-const demoFrequency = new Uint8Array(128)
-const demoMic = new Uint8Array(128)
 
 function isPermissionError(error: unknown) {
   if (error instanceof DOMException) {
@@ -71,8 +71,20 @@ export function useElevenLabsConversation() {
   let idleWaiters: Array<() => void> = []
   let completeCancelled = false
   const agentIdleTimeoutMs = 20000
-  let demoTimer: ReturnType<typeof setTimeout> | null = null
-  let demoPhase: 'idle' | 'speaking' = 'idle'
+  let demoStream: MediaStream | null = null
+  let demoContext: AudioContext | null = null
+  let demoAnalyser: AnalyserNode | null = null
+  let demoData: Uint8Array<ArrayBuffer> | null = null
+  const demoEndpoint = createSpeechEndpoint({
+    onEnded: () => {
+      void endSession()
+    },
+    onCancel: () => {
+      if (demoStream) {
+        demoEndpoint.attach(demoStream)
+      }
+    },
+  })
 
   const connected = computed(() => status.value === 'connected')
   const sessionHeld = computed(
@@ -95,52 +107,59 @@ export function useElevenLabsConversation() {
     }
   }
 
-  function fillDemoFrequency(phase: 'idle' | 'speaking') {
-    const speakerBase = phase === 'speaking' ? 120 : 40
-    const speakerVariance = phase === 'speaking' ? 100 : 30
-    const micBase = phase === 'speaking' ? 70 : 30
-    const micVariance = phase === 'speaking' ? 55 : 20
-    for (let i = 0; i < demoFrequency.length; i += 1) {
-      const envelope = Math.sin((i / demoFrequency.length) * Math.PI)
-      const noise = (Math.sin(i * 12.9898 + performance.now() * 0.003) * 0.5 + 0.5)
-      const speaker = speakerBase + envelope * speakerVariance * noise
-      const micNoise = (Math.sin(i * 7.301 + performance.now() * 0.007) * 0.5 + 0.5)
-      const mic = micBase + envelope * micVariance * micNoise
-      demoFrequency[i] = Math.max(0, Math.min(255, speaker))
-      demoMic[i] = Math.max(0, Math.min(255, mic))
+  async function startDemoMic(token: number) {
+    let stream: MediaStream
+    try {
+      stream = await requestVoiceMediaStream()
+    } catch (error) {
+      if (token === generation) {
+        errorKey.value = errorKeyFromUnknown(error)
+        status.value = 'disconnected'
+        starting.value = false
+      }
+      return
     }
+    const Ctor = window.AudioContext || window.webkitAudioContext
+    if (token !== generation || !Ctor) {
+      stream.getTracks().forEach((track) => track.stop())
+      return
+    }
+    demoStream = stream
+    demoContext = new Ctor()
+    demoAnalyser = demoContext.createAnalyser()
+    demoAnalyser.fftSize = 256
+    demoData = new Uint8Array(new ArrayBuffer(demoAnalyser.frequencyBinCount))
+    demoContext.createMediaStreamSource(stream).connect(demoAnalyser)
+    void demoContext.resume()
+    demoEndpoint.attach(stream)
+    playVoiceCaptureEffect('start')
+    status.value = 'connected'
+    mode.value = 'listening'
+    starting.value = false
+    didConnect = true
   }
 
-  function startDemoAnimation() {
-    stopDemoAnimation()
-    const tick = () => {
-      demoPhase = Math.random() > 0.55 ? 'speaking' : 'idle'
-      fillDemoFrequency(demoPhase)
-      demoTimer = setTimeout(tick, demoPhase === 'speaking' ? 180 : 420)
-    }
-    demoPhase = 'idle'
-    fillDemoFrequency('idle')
-    demoTimer = setTimeout(tick, 420)
-  }
-
-  function stopDemoAnimation() {
-    if (demoTimer !== null) {
-      clearTimeout(demoTimer)
-      demoTimer = null
-    }
+  function stopDemoMic() {
+    demoEndpoint.stop()
+    demoStream?.getTracks().forEach((track) => track.stop())
+    demoStream = null
+    demoAnalyser = null
+    void demoContext?.close()
+    demoContext = null
   }
 
   function getInputFrequency() {
     if (isDemoMode() && !session) {
-      return demoMic
+      if (!demoAnalyser || !demoData) {
+        return emptyFrequency
+      }
+      demoAnalyser.getByteFrequencyData(demoData)
+      return demoData
     }
     return readFrequency('input')
   }
 
   function getOutputFrequency() {
-    if (isDemoMode() && !session) {
-      return demoFrequency
-    }
     return readFrequency('output')
   }
 
@@ -260,14 +279,9 @@ export function useElevenLabsConversation() {
       starting.value = true
       status.value = 'connecting'
       errorKey.value = ''
-      startDemoAnimation()
-      playVoiceCaptureEffect('start')
-      setTimeout(() => {
-        status.value = 'connected'
-        mode.value = 'listening'
-        starting.value = false
-        didConnect = true
-      }, 400)
+      completedConversationId.value = ''
+      generation += 1
+      await startDemoMic(generation)
       return
     }
     if (!elevenLabsAgentId) {
@@ -431,7 +445,7 @@ export function useElevenLabsConversation() {
   async function closeSession(options: { discard?: boolean } = {}) {
     generation += 1
     starting.value = false
-    stopDemoAnimation()
+    stopDemoMic()
     const current = session
     const conversationId = getConversationId(current)
     discardNextDisconnect = Boolean(options.discard)
@@ -464,7 +478,7 @@ export function useElevenLabsConversation() {
     }
     if (isDemoMode()) {
       const demoId = 'conv-001'
-      stopDemoAnimation()
+      stopDemoMic()
       setVoiceReportHandoff({
         conversationId: demoId,
         userTranscript: 'I need to report a pothole on Granville Street near Davie Street.',
@@ -509,6 +523,7 @@ export function useElevenLabsConversation() {
   })
 
   onBeforeUnmount(() => {
+    demoEndpoint.destroy()
     void endSession({ discard: true })
   })
 
