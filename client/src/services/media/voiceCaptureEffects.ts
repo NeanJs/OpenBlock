@@ -10,13 +10,18 @@ const sources: Record<VoiceCaptureEffect, string> = {
   response: ce3,
 }
 
-export function playVoiceCaptureEffect(
-  effect: VoiceCaptureEffect,
-  onEnded?: () => void,
-) {
-  const audio = new Audio(sources[effect])
+export function playVoiceClip(src: string, onEnded?: () => void) {
+  const audio = new Audio(src)
   if (onEnded) {
     audio.addEventListener('ended', onEnded, { once: true })
   }
   void audio.play().catch(() => onEnded?.())
+  return audio
+}
+
+export function playVoiceCaptureEffect(
+  effect: VoiceCaptureEffect,
+  onEnded?: () => void,
+) {
+  return playVoiceClip(sources[effect], onEnded)
 }

@@ -11,7 +11,9 @@ import { elevenLabsAgentId } from '../config/elevenLabsConfig'
 import { isDemoMode } from '../config/demoMode'
 import { createSpeechEndpoint } from '../services/media/speechEndpoint'
 import { requestVoiceMediaStream } from '../services/media/voiceIsolate'
-import { playVoiceCaptureEffect } from '../services/media/voiceCaptureEffects'
+import demoVoice1 from '../assets/demo_voice1.mp3'
+import demoVoice2 from '../assets/demo_voice2.mp3'
+import { playVoiceCaptureEffect, playVoiceClip } from '../services/media/voiceCaptureEffects'
 import { setVoiceReportHandoff } from '../services/voice/voiceReportHandoff'
 
 export type VoiceStatus = Status
@@ -75,6 +77,8 @@ export function useElevenLabsConversation() {
   let demoContext: AudioContext | null = null
   let demoAnalyser: AnalyserNode | null = null
   let demoData: Uint8Array<ArrayBuffer> | null = null
+  let demoClip: HTMLAudioElement | null = null
+  let demoEnding: Promise<string> | null = null
   const demoEndpoint = createSpeechEndpoint({
     onEnded: () => {
       void endSession()
@@ -131,21 +135,59 @@ export function useElevenLabsConversation() {
     demoData = new Uint8Array(new ArrayBuffer(demoAnalyser.frequencyBinCount))
     demoContext.createMediaStreamSource(stream).connect(demoAnalyser)
     void demoContext.resume()
-    demoEndpoint.attach(stream)
-    playVoiceCaptureEffect('start')
     status.value = 'connected'
     mode.value = 'listening'
     starting.value = false
     didConnect = true
+    playVoiceCaptureEffect('start', () => greetDemo(token))
+  }
+
+  // The agent greets first; the mic only listens once the greeting ends, like the live mute.
+  function greetDemo(token: number) {
+    if (token !== generation || !demoStream) {
+      return
+    }
+    mode.value = 'speaking'
+    demoClip = playVoiceClip(demoVoice1, () => {
+      demoClip = null
+      if (token === generation && demoStream) {
+        mode.value = 'listening'
+        demoEndpoint.attach(demoStream)
+      }
+    })
   }
 
   function stopDemoMic() {
     demoEndpoint.stop()
+    demoClip?.pause()
+    demoClip = null
     demoStream?.getTracks().forEach((track) => track.stop())
     demoStream = null
     demoAnalyser = null
     void demoContext?.close()
     demoContext = null
+  }
+
+  function endDemoSession() {
+    const demoId = 'conv-001'
+    stopDemoMic()
+    mode.value = 'speaking'
+    completing.value = true
+    return new Promise<string>((resolve) => {
+      demoClip = playVoiceCaptureEffect('send', () => {
+        demoClip = playVoiceClip(demoVoice2, () => {
+          demoClip = null
+          setVoiceReportHandoff({
+            conversationId: demoId,
+            userTranscript: 'I need to report a pothole on Granville Street near Davie Street.',
+          })
+          completedConversationId.value = demoId
+          completing.value = false
+          demoEnding = null
+          resolve(demoId)
+        })
+      })
+    })
   }
 
   function getInputFrequency() {
@@ -445,6 +487,7 @@ export function useElevenLabsConversation() {
   async function closeSession(options: { discard?: boolean } = {}) {
     generation += 1
     starting.value = false
+    demoEnding = null
     stopDemoMic()
     const current = session
     const conversationId = getConversationId(current)
@@ -477,16 +520,8 @@ export function useElevenLabsConversation() {
       return closeSession({ discard: true })
     }
     if (isDemoMode()) {
-      const demoId = 'conv-001'
-      stopDemoMic()
-      setVoiceReportHandoff({
-        conversationId: demoId,
-        userTranscript: 'I need to report a pothole on Granville Street near Davie Street.',
-      })
-      playVoiceCaptureEffect('response')
-      completedConversationId.value = demoId
-      completing.value = false
-      return demoId
+      demoEnding ??= endDemoSession()
+      return demoEnding
     }
     if (endingSession) {
       return endingSession
