@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import { useLocale } from '../../composables/useLocale'
 import { isDemoMode } from '../../config/demoMode'
-import AppIcon from './AppIcon.vue'
 
 const { t } = useLocale()
 const visible = computed(() => isDemoMode())
@@ -11,7 +10,6 @@ const visible = computed(() => isDemoMode())
 <template>
   <Transition name="slide-up">
     <div v-if="visible" class="banner">
-      <AppIcon name="flask" size="1.1rem" weight="fill" />
       <span>{{ t('demo.banner') }}</span>
     </div>
   </Transition>
