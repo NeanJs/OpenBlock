@@ -53,13 +53,13 @@ export function issueToRemoteReport(issue: Issue): RemoteReport {
 }
 
 export async function mockListReports(): Promise<RemoteReport[]> {
-  await delay(250)
+  await delay(1725)
   const issues = await getLocalIssues()
   return issues.map(issueToRemoteReport)
 }
 
 export async function mockGetAdminReport(reportId: string): Promise<RemoteReport> {
-  await delay(150)
+  await delay(1035)
   const issues = await getLocalIssues()
   const found = issues.find(
     (i) => i.id === reportId || i.remoteId === reportId || i.trackingId === reportId,
@@ -74,7 +74,7 @@ export async function mockUpdateReportStatus(
   reportId: string,
   status: IssueStatus,
 ): Promise<RemoteReport | null> {
-  await delay(200)
+  await delay(1380)
   const issues = await getLocalIssues()
   const found = issues.find(
     (i) => i.id === reportId || i.remoteId === reportId || i.trackingId === reportId,
@@ -89,7 +89,7 @@ export async function mockUpdateReportStatus(
 }
 
 export async function mockCreateReport(input: CreateReportInput): Promise<RemoteReport> {
-  await delay(300)
+  await delay(2070)
   const issues = await getLocalIssues()
   const id = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   const trackingId = `CF-${Math.floor(1000 + Math.random() * 9000)}`
@@ -120,7 +120,7 @@ export async function mockCreateReport(input: CreateReportInput): Promise<Remote
 }
 
 export async function mockTrackReport(trackingId: string): Promise<RemoteReport> {
-  await delay(200)
+  await delay(1380)
   const cleanId = trackingId.trim().toUpperCase()
   const issues = await getLocalIssues()
   const found = issues.find(
@@ -133,7 +133,7 @@ export async function mockTrackReport(trackingId: string): Promise<RemoteReport>
 }
 
 export async function mockIngestReport(input: ReportIngestInput): Promise<ReportIngestDraft> {
-  await delay(400)
+  await delay(2760)
   const text = input.text?.trim() || ''
   const locationLabel = input.locationLabel?.trim() || 'Granville & Davie Street'
   
@@ -182,14 +182,14 @@ export async function mockIngestReport(input: ReportIngestInput): Promise<Report
 }
 
 export async function mockTranscribeReport(_audio: Blob): Promise<string> {
-  await delay(350)
+  await delay(2415)
   return "There is a severe pothole on Granville Street near Davie Street causing damage to passing vehicles."
 }
 
 export async function mockGetVoiceConversationIssue(
   conversationId: string,
 ): Promise<ReportIngestDraft> {
-  await delay(300)
+  await delay(2070)
   const match = conversationTranscripts.find((c) => c.conversationId === conversationId)
   const text = match ? match.transcript : "Reported issue via voice conversation"
   return mockIngestReport({ text })

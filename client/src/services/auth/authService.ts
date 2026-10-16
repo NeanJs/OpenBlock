@@ -1,4 +1,5 @@
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { isDemoMode } from '../../config/demoMode'
 import { isSupabaseConfigured } from '../../config/supabaseConfig'
 import type { PublicUser, UserRole } from '../../types/user'
 import { readStoreItem, writeStoreItem } from '../storage/persistentStore'
@@ -61,7 +62,7 @@ async function ensureGuestReporter() {
   } catch {
     guestReporterId = ''
   }
-  guestReporterId = `guest-${createId()}`
+  guestReporterId = isDemoMode() ? 'demo-user' : `guest-${createId()}`
   await writeStoreItem(guestReporterKey, guestReporterId)
 }
 

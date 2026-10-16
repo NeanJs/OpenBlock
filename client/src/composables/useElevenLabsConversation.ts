@@ -17,6 +17,7 @@ export type VoiceMode = Mode
 
 const emptyFrequency = new Uint8Array(0)
 const unmuteDelayMs = 250
+const demoFrequency = new Uint8Array(128)
 
 function isPermissionError(error: unknown) {
   if (error instanceof DOMException) {
@@ -69,6 +70,8 @@ export function useElevenLabsConversation() {
   let idleWaiters: Array<() => void> = []
   let completeCancelled = false
   const agentIdleTimeoutMs = 20000
+  let demoTimer: ReturnType<typeof setTimeout> | null = null
+  let demoPhase: 'idle' | 'speaking' = 'idle'
 
   const connected = computed(() => status.value === 'connected')
   const sessionHeld = computed(
@@ -91,11 +94,47 @@ export function useElevenLabsConversation() {
     }
   }
 
+  function fillDemoFrequency(phase: 'idle' | 'speaking') {
+    const base = phase === 'speaking' ? 120 : 40
+    const variance = phase === 'speaking' ? 100 : 30
+    for (let i = 0; i < demoFrequency.length; i += 1) {
+      const envelope = Math.sin((i / demoFrequency.length) * Math.PI)
+      const noise = (Math.sin(i * 12.9898 + performance.now() * 0.003) * 0.5 + 0.5)
+      const value = base + envelope * variance * noise
+      demoFrequency[i] = Math.max(0, Math.min(255, value))
+    }
+  }
+
+  function startDemoAnimation() {
+    stopDemoAnimation()
+    const tick = () => {
+      demoPhase = Math.random() > 0.55 ? 'speaking' : 'idle'
+      fillDemoFrequency(demoPhase)
+      demoTimer = setTimeout(tick, demoPhase === 'speaking' ? 180 : 420)
+    }
+    demoPhase = 'idle'
+    fillDemoFrequency('idle')
+    demoTimer = setTimeout(tick, 420)
+  }
+
+  function stopDemoAnimation() {
+    if (demoTimer !== null) {
+      clearTimeout(demoTimer)
+      demoTimer = null
+    }
+  }
+
   function getInputFrequency() {
+    if (isDemoMode() && !session) {
+      return demoFrequency
+    }
     return readFrequency('input')
   }
 
   function getOutputFrequency() {
+    if (isDemoMode() && !session) {
+      return demoFrequency
+    }
     return readFrequency('output')
   }
 
@@ -215,6 +254,7 @@ export function useElevenLabsConversation() {
       starting.value = true
       status.value = 'connecting'
       errorKey.value = ''
+      startDemoAnimation()
       setTimeout(() => {
         status.value = 'connected'
         mode.value = 'listening'
@@ -384,6 +424,7 @@ export function useElevenLabsConversation() {
   async function closeSession(options: { discard?: boolean } = {}) {
     generation += 1
     starting.value = false
+    stopDemoAnimation()
     const current = session
     const conversationId = getConversationId(current)
     discardNextDisconnect = Boolean(options.discard)
