@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import PageSwitch from './components/layout/PageSwitch.vue'
 import BackgroundScene from './components/layout/BackgroundScene.vue'
 import OfflineNotice from './components/ui/OfflineNotice.vue'
+import DemoBanner from './components/ui/DemoBanner.vue'
 import { useAuth } from './composables/useAuth'
 import { useIssues } from './composables/useIssues'
 import { useLocale } from './composables/useLocale'
@@ -33,6 +34,7 @@ onMounted(() => {
       </div>
     </Transition>
     <OfflineNotice :open="offlineVisible" @close="dismissOffline" />
+    <DemoBanner />
   </div>
 </template>
 

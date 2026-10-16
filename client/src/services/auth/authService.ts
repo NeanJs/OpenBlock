@@ -114,6 +114,15 @@ export async function getAccessToken(): Promise<string> {
 }
 
 export async function login(email: string, password: string): Promise<PublicUser> {
+  if (isDemoMode()) {
+    const trimmed = email.trim()
+    if (!trimmed || !password) {
+      throw new AuthError('invalidCredentials')
+    }
+    const demoUser = createDemoStaffUser(trimmed)
+    currentUser = demoUser
+    return demoUser
+  }
   if (!isSupabaseConfigured()) {
     throw new AuthError('unavailable')
   }
@@ -127,6 +136,24 @@ export async function login(email: string, password: string): Promise<PublicUser
   }
   currentUser = toPublicUser(data.session.user)
   return currentUser
+}
+
+function createDemoStaffUser(email: string): PublicUser {
+  const seed = `${email.toLowerCase()}:${Math.random().toString(36).slice(2, 10)}`
+  const suffix = seed.slice(-6)
+  const name = seed
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+  const base = name || 'City Staff'
+  return {
+    id: `staff-${suffix}`,
+    email,
+    displayName: `${base} ${suffix}`,
+    role: 'staff',
+    createdAt: new Date().toISOString(),
+  }
 }
 
 export async function logout(): Promise<void> {

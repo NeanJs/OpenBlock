@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AppIcon from '../../components/ui/AppIcon.vue'
 import GlassPanel from '../../components/ui/GlassPanel.vue'
 import { pageTitleIconForRoute } from '../../config/nav'
+import { isDemoMode } from '../../config/demoMode'
 import { useAuth } from '../../composables/useAuth'
 import { useLocale } from '../../composables/useLocale'
 import { AuthError, homePathForRole } from '../../services/auth/authService'
@@ -17,6 +18,14 @@ const email = ref('')
 const password = ref('')
 const submitting = ref(false)
 const errorKey = ref('')
+
+onMounted(() => {
+  if (isDemoMode()) {
+    email.value = `admin-${Math.random().toString(36).slice(2, 8)}@demo.local`
+    password.value = Math.random().toString(36).slice(2, 12)
+    setTimeout(() => signIn(email.value, password.value), 300)
+  }
+})
 
 async function signIn(nextEmail: string, nextPassword: string) {
   if (submitting.value) {

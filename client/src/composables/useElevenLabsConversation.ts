@@ -18,6 +18,7 @@ export type VoiceMode = Mode
 const emptyFrequency = new Uint8Array(0)
 const unmuteDelayMs = 250
 const demoFrequency = new Uint8Array(128)
+const demoMic = new Uint8Array(128)
 
 function isPermissionError(error: unknown) {
   if (error instanceof DOMException) {
@@ -95,13 +96,18 @@ export function useElevenLabsConversation() {
   }
 
   function fillDemoFrequency(phase: 'idle' | 'speaking') {
-    const base = phase === 'speaking' ? 120 : 40
-    const variance = phase === 'speaking' ? 100 : 30
+    const speakerBase = phase === 'speaking' ? 120 : 40
+    const speakerVariance = phase === 'speaking' ? 100 : 30
+    const micBase = phase === 'speaking' ? 70 : 30
+    const micVariance = phase === 'speaking' ? 55 : 20
     for (let i = 0; i < demoFrequency.length; i += 1) {
       const envelope = Math.sin((i / demoFrequency.length) * Math.PI)
       const noise = (Math.sin(i * 12.9898 + performance.now() * 0.003) * 0.5 + 0.5)
-      const value = base + envelope * variance * noise
-      demoFrequency[i] = Math.max(0, Math.min(255, value))
+      const speaker = speakerBase + envelope * speakerVariance * noise
+      const micNoise = (Math.sin(i * 7.301 + performance.now() * 0.007) * 0.5 + 0.5)
+      const mic = micBase + envelope * micVariance * micNoise
+      demoFrequency[i] = Math.max(0, Math.min(255, speaker))
+      demoMic[i] = Math.max(0, Math.min(255, mic))
     }
   }
 
@@ -126,7 +132,7 @@ export function useElevenLabsConversation() {
 
   function getInputFrequency() {
     if (isDemoMode() && !session) {
-      return demoFrequency
+      return demoMic
     }
     return readFrequency('input')
   }
@@ -255,6 +261,7 @@ export function useElevenLabsConversation() {
       status.value = 'connecting'
       errorKey.value = ''
       startDemoAnimation()
+      playVoiceCaptureEffect('start')
       setTimeout(() => {
         status.value = 'connected'
         mode.value = 'listening'
@@ -457,10 +464,12 @@ export function useElevenLabsConversation() {
     }
     if (isDemoMode()) {
       const demoId = 'conv-001'
+      stopDemoAnimation()
       setVoiceReportHandoff({
         conversationId: demoId,
         userTranscript: 'I need to report a pothole on Granville Street near Davie Street.',
       })
+      playVoiceCaptureEffect('response')
       completedConversationId.value = demoId
       completing.value = false
       return demoId
